@@ -2,35 +2,92 @@
 #define SDSPI
 
 #include "stm32f4xx.h"
+#include <stdint.h>
 
 class SD
 {
 public:
     SD(){sd_spi_init();}
+    bool SDHC=0;
+    uint8_t send_command(uint8_t dt0, uint8_t dt1, uint8_t dt2,
+                         uint8_t dt3, uint8_t dt4, uint8_t dt5)
+    {
+        uint32_t cnt=0; uint8_t res = 0;
+        cs_set();
+        send_byte(dt0);send_byte(dt1);send_byte(dt2);
+        send_byte(dt3);send_byte(dt4);send_byte(dt5);
+        while((res = read_byte()) == 0xFF) //записываем в res считанное число не равное 0xFF
+        {
+            //if(cnt++ > 0xFFFF)break;//выйти по таймауту
+        } 
+        //проверка ответа если посылалась команда READ_OCR
+        if(res == 0x00 && dt0 == 58)     
+        {
+          uint8_t tmp = read_byte();                      //прочитать один байт регистра OCR            
+          if(tmp & 0x40) SDHC = 1;               //обнаружена карта SDHC 
+          else           SDHC = 0;               //обнаружена карта SD
+          //прочитать три оставшихся байта регистра OCR
+          read_byte(); 
+          read_byte(); 
+          read_byte(); 
+        }
+        read_byte();
+        cs_idle();
+        return res;
+    }
+    uint8_t sd_init()
+    {
+        uint8_t cnt=0;
+        for(uint8_t i=0;i<10;i++)
+        {
+            send_byte(0xFF);
+        }
+        cs_set();
+        uint8_t temp = send_command(0x40,0x00,0x00,0x00,0x00,0x95); //CMD0
+        //if(temp!=0x01) return 1; //Выйти если ответ не 0x01 
+        do
+        {
+            temp=send_command(0x41,0x00,0x00,0x00,0x00,0x95); //CMD1 передаем также, меняется только индекс
+            send_byte(0xFF);
+            cnt++;
+        } while ((temp!=0x00)&&cnt<0xFFFF); //Ждёс ответа R1
+        if(cnt>=0xFFFF) return 2;
+        return 0;
+    }
+    static constexpr uint8_t GO_IDLE_STATE = 0; //Программная перезагрузка 
+    static constexpr uint8_t SEND_IF_COND = 8; //Для SDC V2 - проверка диапазона напряжений 
+    static constexpr uint8_t READ_SINGLE_BLOCK = 17; //Чтение указанного блока данных 
+    static constexpr uint8_t WRITE_SINGLE_BLOCK = 24; //Запись указанного блока данных
+    static constexpr uint8_t SD_SEND_OP_COND = 41; //Начало процесса инициализации 
+    static constexpr uint8_t APP_CMD = 55; //Главная команда из ACMD  команд
+    static constexpr uint8_t READ_OCR = 58; //Чтение регистра OCR
+    
+//private:
     void send_byte(uint8_t byte)
     {
         while(!(SPI2->SR&SPI_SR_TXE)){}        
         SPI2->DR=byte;
-        //*(uint8_t*)SPI1->DR=data;
+        //*(uint8_t*)SPI2->DR=byte;
         while((SPI2->SR&SPI_SR_BSY)){}
     }
-    uint16_t read_byte()
+    uint8_t read_byte()
     {
-        SPI2->DR = 0; //запускаем обмен
-        while(!(SPI1->SR&SPI_SR_RXNE)) //ждем пока не появится новое значение в буффере приемника
-        return SPI1->DR; //возвращаем значение из буффера приемника
+        uint8_t temp=0;
+        SPI2->DR = 0xFF; //запускаем обмен
+        while(!(SPI2->SR&SPI_SR_RXNE)); //ждем пока не появится новое значение в буффере приемника
+        temp = SPI2->DR;
+        return  temp;//возвращаем значение из буффера приемника
     }
     uint16_t read_word()
     {
         SPI2->DR = 0; //запускаем обмен
-        while(!(SPI1->SR&SPI_SR_RXNE)) //ждем пока не появится новое значение в буффере приемника
-        return SPI1->DR; //возвращаем значение из буффера приемника
+        while(!(SPI2->SR&SPI_SR_RXNE)) //ждем пока не появится новое значение в буффере приемника
+        return SPI2->DR; //возвращаем значение из буффера приемника
     }
     inline void cs_idle() __attribute ((always_inline))
     {GPIOB->BSRRH |= GPIO_BSRR_BS_12;}
     inline void cs_set() __attribute ((always_inline))
     {GPIOB->BSRRH |= GPIO_BSRR_BR_12;}
-private:
     void sd_spi_init()
     {
         //------- SPI2 b12-NSS b13-SCK b14-MISO b15-MOSI ------------
@@ -41,11 +98,11 @@ private:
         GPIOB->OSPEEDR|=GPIO_OSPEEDER_OSPEEDR12;
         //-------b13-SCK b14-MISO b15-MOSI - alt func SPI2 --------------------
         GPIOB->MODER|=(GPIO_MODER_MODER13_1|GPIO_MODER_MODER14_1|GPIO_MODER_MODER15_1);
-        GPIOB->MODER&=~(GPIO_MODER_MODER13_0|GPIO_MODER_MODER14_1|GPIO_MODER_MODER15_1);
+        GPIOB->MODER&=~(GPIO_MODER_MODER13_0|GPIO_MODER_MODER14_0|GPIO_MODER_MODER15_0);
         //GPIOB->AFR[0]=0;
         GPIOB->AFR[1]|=(5<<20)|(5<<24)|(5<<28);//alt func 5 (SPI2)
-        GPIOB->OSPEEDR|=GPIO_OSPEEDER_OSPEEDR3;//
-        GPIOB->OSPEEDR|=GPIO_OSPEEDER_OSPEEDR5;//max speed on pins
+        GPIOB->OSPEEDR|=GPIO_OSPEEDER_OSPEEDR13;//
+        GPIOB->OSPEEDR|=GPIO_OSPEEDER_OSPEEDR15;//max speed on pins
 
         //------------- тактируем SPI-2  ---------------------------
         RCC->APB1ENR|=RCC_APB1ENR_SPI2EN; //clock on fast SPI-1
@@ -68,11 +125,7 @@ private:
         //NVIC_EnableIRQ(SPI1_IRQn);
         //----------- включаем SPI-1 --------------------------------------------
         SPI2->CR1|=SPI_CR1_SPE;
-    }
-    void sd_init()
-    {
-
-    }
+    }    
 };
 
 #endif //SDSPI

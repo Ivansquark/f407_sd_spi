@@ -23,6 +23,7 @@
 
 //#include "irq.h"
 #include "led.h"
+#include "sdspi.hpp"
 //#include "i2c.h"
 //#include "r2r.h"
 #endif // ! MAIN_H_
