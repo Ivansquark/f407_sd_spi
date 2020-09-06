@@ -4,8 +4,6 @@ TARGET = src/main.cpp
 INC = inc/
 LIB = lib/
 SRC = src/
-FRH = freeRTOS/inc/
-FRS = freeRTOS/src/    
 
 CC = arm-none-eabi-gcc
 LD = arm-none-eabi-ld
@@ -49,11 +47,11 @@ main.elf: startup.o malloc.o main.o
 startup.o: $(LIB)startup.cpp
 	$(CC) $(LIB)startup.cpp -o startup.o $(CPPFLAGS) 
 	#arm-none-eabi-objdump startup.o -h
-malloc.o: $(SRC)malloc.cpp $(INC) $(FRH)
-	$(CC) $(SRC)malloc.cpp -o malloc.o -I$(INC) -I$(FRH) $(CPPFLAGS)
+malloc.o: $(SRC)malloc.cpp $(INC) 
+	$(CC) $(SRC)malloc.cpp -o malloc.o -I$(INC) $(CPPFLAGS)
 
-main.o: $(TARGET) $(INC) $(FRH)
-	$(CC) $(TARGET) -o main.o -I$(INC) -I$(LIB) -I$(FRH) $(CPPFLAGS)
+main.o: $(TARGET) $(INC) 
+	$(CC) $(TARGET) -o main.o -I$(INC) -I$(LIB) $(CPPFLAGS)
 	#arm-none-eabi-objdump main.o -h 
 				
 clean:
