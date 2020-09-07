@@ -35,24 +35,46 @@ public:
         cs_idle();
         return res;
     }
+	uint8_t send_cmd(uint8_t cmd, uint32_t arg)
+	{
+		uint8_t res=0, n = 0xFF;
+		cs_set();
+		send_byte(0x40+cmd);
+		send_byte(arg>>24);
+		send_byte(arg>>16);
+		send_byte(arg>>8);
+		send_byte(arg);
+		if(cmd==0){send_byte(0x95);} // Valid CRC for CMD0(0)
+		else if(cmd==8){send_byte(0x87);} // Valid CRC for CMD8(0x1AA)
+		do 
+		{
+			res = SPI_ReceiveByte();
+		} while ((res & 0x80) && --n);
+		cs_idle();
+		return res;		
+	}
     uint8_t sd_init()
     {
+		cs_idle();
         uint8_t cnt=0;
+		for(uint32_t i=0;i<148000;i++);//delay wait 1ms
         for(uint8_t i=0;i<10;i++)
         {
             send_byte(0xFF);
         }
         cs_set();
+		for(uint16_t i=0;i<60000;i++);//delay
         uint8_t temp = send_command(0x40,0x00,0x00,0x00,0x00,0x95); //CMD0
+		return temp;
         //if(temp!=0x01) return 1; //Выйти если ответ не 0x01 
-        do
-        {
-            temp=send_command(0x41,0x00,0x00,0x00,0x00,0x95); //CMD1 передаем также, меняется только индекс
-            send_byte(0xFF);
-            cnt++;
-        } while ((temp!=0x00)&&cnt<0xFFFF); //Ждёс ответа R1
-        if(cnt>=0xFFFF) return 2;
-        return 0;
+        //do
+        //{
+        //    temp=send_command(0x41,0x00,0x00,0x00,0x00,0x95); //CMD1 передаем также, меняется только индекс
+        //    send_byte(0xFF);
+        //    cnt++;
+        //} while ((temp!=0x00)&&cnt<0xFFFF); //Ждёс ответа R1
+        //if(cnt>=0xFFFF) return 2;
+        //return 0;
     }
     static constexpr uint8_t GO_IDLE_STATE = 0; //Программная перезагрузка 
     static constexpr uint8_t SEND_IF_COND = 8; //Для SDC V2 - проверка диапазона напряжений 
