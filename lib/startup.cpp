@@ -198,6 +198,40 @@ void (*vectors[])() __attribute__((section(".isr_vectors"))) =
   FPU_IRQHandler                     /* FPU                          */
 };
 
+extern void (*__preinit_array_start []) (void) __attribute__((weak)); //from linker
+extern void (*__preinit_array_end []) (void) __attribute__((weak));	//from linker
+extern void (*__init_array_start []) (void) __attribute__((weak)); //from linker constructors
+extern void (*__init_array_end []) (void) __attribute__((weak)); //from linker	constructors
+extern void (*__fini_array_start []) (void) __attribute__((weak)); //from linker destructors
+extern void (*__fini_array_end []) (void) __attribute__((weak)); //from linker	destructors
+void __attribute__ ((weak)) _init(void)  {} // dummy This section holds executable instructions that contribute to the process initialization code. When a program starts to run, the system arranges to execute the code in this section before calling the main program entry point (called main for C programs). 
+void __attribute__ ((weak)) _fini(void)  {} // dummy заглушка This section holds executable instructions that contribute to the process termination code. That is, when a program exits normally, the system arranges to execute the code in this section
+
+/* Iterate over all the init routines.  */
+void
+__libc_init_array (void) // static initialization constructors function
+{
+  int count;  int i;
+  count = __preinit_array_end - __preinit_array_start; //counts of preinit functions DK what it is
+  for (i = 0; i < count; i++)
+    __preinit_array_start[i] ();
+  _init ();
+  count = __init_array_end - __init_array_start; // counts of init constructors
+  for (i = 0; i < count; i++)
+    __init_array_start[i] ();
+}
+/* Run all the cleanup routines.  */
+void
+__libc_fini_array (void) //!< destructors not usefull in microcontrollers
+{
+  int count;
+  int i;  
+  count = __fini_array_end - __fini_array_start;
+  for (i = count; i > 0; i--)
+    __fini_array_start[i-1] ();
+  _fini ();
+}
+
 extern void *_sidata, *_sdata, *_edata, *_sbss, *_ebss; //из линкер скрипта
 void __attribute__((naked,noreturn))Reset_Handler()  //В такие функции обычно пихают ассемблер - naked
 {
@@ -211,7 +245,7 @@ void __attribute__((naked,noreturn))Reset_Handler()  //В такие функц�
 	main();
 	while(1);
 }
-void __attribute__((naked, noreturn)) Default_Handler()
+void Default_Handler()
 {
     while(1);
 }

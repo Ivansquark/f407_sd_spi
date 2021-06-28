@@ -1,6 +1,2 @@
-*.bin
-*.o
-*.elf
-*.lst
-*.map
+build/
 .directory

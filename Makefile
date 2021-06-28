@@ -1,9 +1,12 @@
-.PHONY: all clean load 
+.PHONY: dirBuild all clean load 
 
 TARGET = src/main.cpp
 INC = inc/
 LIB = lib/
 SRC = src/
+srcFFS = FATFS/src/
+incFFS = FATFS/inc/
+BLD = build/
 
 CC = arm-none-eabi-gcc
 LD = arm-none-eabi-ld
@@ -15,44 +18,68 @@ CPPFLAGS = -c -Wall -g -O0 --specs=nosys.specs -specs=nano.specs \
 	   -nostartfiles -fno-common -D"assert_param(x)=" \
 	   -mcpu=cortex-m4 -mthumb -march=armv7e-m -fno-exceptions \
 	   -Wno-pointer-arith -fno-rtti -mfloat-abi=hard -mfpu=fpv4-sp-d16 \
-	   -u_printf_float -ffast-math -fno-math-errno \
-	   -ffunction-sections
-LDFLAGS = -specs=nano.specs -specs=nosys.specs \
-	  -marmelf --gc-sections -lgcc\
-	  -L/usr/lib/gcc/arm-none-eabi/7.3.1/ \
-	  -L/usr/lib/arm-none-eabi/newlib/thumb/v7e-m/fpv4-sp/hard/ \
-	  -I/lib/arm-none-eabi/newlib/thumb/v7e-m/
+	   -ffast-math -fno-math-errno \
+	   -ffunction-sections -L"C:\SysGCC\arm-eabi\lib\gcc\arm-none-eabi\9.3.1\thumb\v7e-m+fp\hard"
+#-u_printf_float
+
 LFLAGS = -mcpu=cortex-m4 -mthumb -nostartfiles -lm -lc -lgcc \
 		 -specs=nano.specs -specs=nosys.specs -fno-exceptions -fno-rtti \
-		 -u_printf_float -mfloat-abi=hard -mfpu=fpv4-sp-d16 \
-		 -L/usr/lib/arm-none-eabi/newlib/thumb/v7e-m/fpv4-sp/hard/
-		#для FPU
-load:	main.bin
-	st-info --probe
-	st-flash write main.bin 0x08000000
-	#st-info --probe
-	
-all:	main.bin main.lst main.elf
-main.bin: main.elf
-	arm-none-eabi-objcopy main.elf main.bin -O binary
-main.lst: main.elf
-	arm-none-eabi-objdump -D main.elf > main.lst
+		 -mfloat-abi=hard -mfpu=fpv4-sp-d16 \
+		 -L/usr/lib/arm-none-eabi/newlib/thumb/v7e-m/fpv4-sp/hard/ \
+		 -Xlinker -Map=$(BLD)main.map
+#-u_printf_float
+load:	$(BLD)main.bin
+	openocd -f lib/stlink.cfg -f lib/stm32f4x.cfg -c "program $(BLD)main.bin \
+	verify reset exit 0x08000000"
 
-main.elf: startup.o malloc.o main.o
-	$(CC) -o main.elf -T$(LIB)stm32f4.ld startup.o malloc.o main.o \
-	$(LFLAGS) -Xlinker -Map=main.map 
-	# -z  muldefs
-	arm-none-eabi-size main.elf
-	
-startup.o: $(LIB)startup.cpp
-	$(CC) $(LIB)startup.cpp -o startup.o $(CPPFLAGS) 
-	#arm-none-eabi-objdump startup.o -h
-malloc.o: $(SRC)malloc.cpp $(INC) 
-	$(CC) $(SRC)malloc.cpp -o malloc.o -I$(INC) $(CPPFLAGS)
+all:  $(BLD)main.bin $(BLD)main.lst $(BLD)main.elf 
+$(BLD)main.bin: $(BLD)main.elf
+	arm-none-eabi-objcopy $(BLD)main.elf $(BLD)main.bin -O binary
+$(BLD)main.lst: $(BLD)main.elf
+	arm-none-eabi-objdump -D $(BLD)main.elf > $(BLD)main.lst	
 
-main.o: $(TARGET) $(INC) 
-	$(CC) $(TARGET) -o main.o -I$(INC) -I$(LIB) $(CPPFLAGS)
-	#arm-none-eabi-objdump main.o -h 
+$(BLD)main.elf: $(BLD)startup.o $(BLD)ethernet.o $(BLD)main.o $(BLD)rcc.o
+$(BLD)main.elf: $(BLD)gptimers.o $(BLD)flash.o $(BLD)sd_spi.o
+$(BLD)main.elf: $(BLD)diskio.o $(BLD)pff.o
+	$(CC) -o $(BLD)main.elf -T$(LIB)stm32f4.ld \
+	$(BLD)startup.o $(BLD)ethernet.o $(BLD)main.o $(BLD)rcc.o \
+	$(BLD)gptimers.o $(BLD)flash.o $(BLD)sd_spi.o \
+	$(BLD)diskio.o $(BLD)pff.o \
+	$(LFLAGS)  
+# -z  muldefs
+	arm-none-eabi-size $(BLD)main.elf	
+	
+$(BLD)startup.o: $(LIB)startup.cpp
+	$(CC) $(LIB)startup.cpp -o $(BLD)startup.o $(CPPFLAGS)	
+#arm-none-eabi-objdump $(BLD)startup.o -h
+
+$(BLD)ethernet.o: $(SRC)ethernet.cpp
+	$(CC) $(SRC)ethernet.cpp -o $(BLD)ethernet.o -I$(INC) -I$(incFFS) -I$(LIB) $(CPPFLAGS)
+$(BLD)rcc.o: $(SRC)rcc.cpp
+	$(CC) $(SRC)rcc.cpp -o $(BLD)rcc.o -I$(INC) -I$(LIB) -I$(incFFS) $(CPPFLAGS)
+$(BLD)gptimers.o: $(SRC)gptimers.cpp
+	$(CC) $(SRC)gptimers.cpp -o $(BLD)gptimers.o -I$(INC) -I$(incFFS) -I$(LIB) $(CPPFLAGS)	
+$(BLD)flash.o: $(SRC)flash.cpp
+	$(CC) $(SRC)flash.cpp -o $(BLD)flash.o -I$(INC) -I$(incFFS) -I$(LIB) $(CPPFLAGS)
+$(BLD)sd_spi.o: $(SRC)sd_spi.cpp
+	$(CC) $(SRC)sd_spi.cpp -o $(BLD)sd_spi.o -I$(INC) -I$(incFFS) -I$(LIB) $(CPPFLAGS)
+
+#______________ FFS ___________________________
+$(BLD)diskio.o: $(srcFFS)diskio.cpp
+	$(CC) $(srcFFS)diskio.cpp -o $(BLD)diskio.o -I$(INC) -I$(incFFS) -I$(LIB) $(CPPFLAGS)	
+$(BLD)pff.o: $(srcFFS)pff.cpp
+	$(CC) $(srcFFS)pff.cpp -o $(BLD)pff.o -I$(INC) -I$(incFFS) -I$(LIB) $(CPPFLAGS)				
+
+$(BLD)main.o: $(TARGET) 
+	$(CC) $(TARGET) -o $(BLD)main.o -I$(INC) -I$(incFFS) -I$(LIB) $(CPPFLAGS)
+#arm-none-eabi-objdump $(BLD)main.o -h 
 				
-clean:
-	rm -rf *.o *.elf *.lst *.bin *.map
+clean: dirbuildTemp remove dirbuild 
+
+dirbuildTemp:
+	mkdir -p build;
+remove:
+	rm -R $(BLD)
+dirbuild:
+	mkdir -p build;
+#	rm -rf *.o *.elf *.lst *.bin *.map

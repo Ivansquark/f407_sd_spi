@@ -1,6 +1,6 @@
 
 _Min_Heap_Size = 0x4000;	/*32K*/
-_Min_Stack_Size = 0x2000;  /*16K*/
+_Min_Stack_Size = 0x4000;  /*16K*/
 
 /*stack will be at the begining of RAM => _estack = 0x2000000 + 0x00001000 => _estack = 0x20001000*/
 
@@ -9,6 +9,8 @@ MEMORY
   /*read/write/execution*/
 	RAM (xrw)					: ORIGIN = 0x20000000, LENGTH = 128K    /*128-24=104K*/
 	ROM (xr)					: ORIGIN = 0x08000000, LENGTH = 1024K
+  /*!< new start address >*/
+  /* ROM (xr)					: ORIGIN = 0x08020000, LENGTH = 512K */
 	CC_RAM (xrw)				: ORIGIN = 0x10000000, LENGTH = 64K
 	MEMORY_B1 (xr)		: ORIGIN = 0x60000000, LENGTH = 0K     /*external RAM*/
 }

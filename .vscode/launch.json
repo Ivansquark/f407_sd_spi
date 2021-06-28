@@ -7,17 +7,15 @@
         {
             "name": "openocd",
             "cwd": "${workspaceRoot}",
-            "executable": "${workspaceRoot}/main.elf",
+            "executable": "${workspaceRoot}\\build\\main.elf",
             "request": "launch",
             "type": "cortex-debug",
-            //"gdbpath": "/usr/bin/gdb-multiarch",
             "servertype": "openocd",
             "svdFile": "./lib/STM32F407.svd",
-            "searchDir": ["/usr/share/openocd/scripts/"],                   
+            "searchDir": ["C:\\OpenOCD\\share\\openocd\\scripts"],                   
             "configFiles": 
             [
                 "./lib/stlink.cfg",
-                //"./lib/stm32f4discovery.cfg",
                 "./lib/stm32f4x.cfg"
             ]
         }

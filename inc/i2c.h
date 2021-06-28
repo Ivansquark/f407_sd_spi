@@ -2,7 +2,7 @@
 #define I2C_H_
 
 //#include "main.h"
-//#include "stm32f4xx.h"
+#include "stm32f4xx.h"
 
 class I2C_clock
 {

@@ -6,7 +6,7 @@
         {
             "label": "build",
             "type": "shell",
-            "command": "make all",
+            "command": "make all -j4",
             "args":
             [],
             "group": "build",
